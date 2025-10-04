@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useI18n } from "@/components/i18n-provider"
 import { useToast } from "@/hooks/use-toast"
-import { apiClient } from "@/lib/api"
+import api, { ApiError } from "@/lib/api";
 import { LanguageSelector } from "@/components/language-selector"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { AccessibilityControls } from "@/components/accessibility-controls"
@@ -57,36 +57,27 @@ export default function RegisterPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  e.preventDefault();
 
-    if (!validateForm()) return
+  if (!validateForm()) return;
 
-    setIsLoading(true)
+  setIsLoading(true);
 
-    try {
-      const response = await apiClient.register(formData.email, formData.password)
-      localStorage.setItem("auth_token", response.access_token)
-
-      // Bootstrap violation types
-      try {
-        await apiClient.bootstrapViolationTypes()
-      } catch (bootstrapError) {
-        // Ignore bootstrap errors - might already be initialized
-        console.warn("Bootstrap warning:", bootstrapError)
-      }
-
-      toast({
-        title: t("common.success"),
-        description: t("auth.accountCreated"),
-      })
-
-      router.push("/dashboard")
-    } catch (error: any) {
-      setErrors({ general: error.message || "Registration failed" })
-    } finally {
-      setIsLoading(false)
-    }
+  try {
+    const res = await api.register(formData.email, formData.password);
+    // token is stored internally by api.register; just route next
+    router.push("/dashboard");
+  } catch (e) {
+    const err = e as ApiError;
+    toast({
+      variant: "destructive",
+      title: err.status ? `${err.status}` : "Error",
+      description: err.message,
+    });
+  } finally {
+    setIsLoading(false);
   }
+};
 
   const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }))

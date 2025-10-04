@@ -1,46 +1,26 @@
-import type React from "react"
-import { Inter, JetBrains_Mono } from "next/font/google"
-import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { I18nProvider } from "@/components/i18n-provider"
-import { AccessibilityProvider } from "@/components/accessibility-provider"
-import { Toaster } from "@/components/ui/toaster"
-import { SkipLink } from "@/components/ui/skip-link"
+// app/layout.tsx
+import type { Metadata } from "next";
+import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { I18nProvider } from "@/components/i18n-provider";
+import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-})
+export const metadata: Metadata = {
+  title: "e-Challan",
+  description: "Traffic violation management",
+};
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
-  display: "swap",
-})
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
-      <body className="font-sans antialiased">
-        <SkipLink href="#main-content">Skip to main content</SkipLink>
-        <ThemeProvider>
-          <AccessibilityProvider>
-            <I18nProvider>
-              {children}
-              <Toaster />
-            </I18nProvider>
-          </AccessibilityProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <ThemeProvider defaultTheme="system" storageKey="echallan-theme">
+          <I18nProvider locale="en">
+            {children}
+            <Toaster />
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
-
-export const metadata = {
-      generator: 'v0.app'
-    };
