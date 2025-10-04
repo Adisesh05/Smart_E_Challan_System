@@ -1,68 +1,82 @@
-# backend/app/config.py
 from functools import lru_cache
-from typing import List
-
+from typing import List, Optional, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, field_validator
+import json
 
 
 class Settings(BaseSettings):
-    # Tell pydantic-settings to read backend/.env and ignore unknown keys
+    # ==== Base Configuration ====
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",  # don't error on unexpected env vars
+        extra="ignore",
     )
 
-    # ========= SECURITY / JWT =========
+    # ==== Security & JWT ====
     JWT_SECRET: str = "changeme"
     JWT_ALG: str = "HS256"
-    JWT_EXPIRE_MIN: int = 1440  # minutes
+    JWT_EXPIRE_MIN: int = 1440  # 1 day
 
-    # ========= DATABASE =========
+    # ==== Database ====
     DATABASE_URL: str = "sqlite:///./echallan.db"
 
-    # ========= EMAIL / SMTP =========
+    # ==== SMTP Config ====
     SMTP_HOST: str = "localhost"
     SMTP_PORT: int = 25
-    SMTP_USER: str | None = None
-    SMTP_PASS: str | None = None
-    SMTP_USE_TLS: bool = False  # "true"/"false" in .env are coerced to bool
+    SMTP_USER: Optional[str] = None
+    SMTP_PASS: Optional[str] = None
+    SMTP_USE_TLS: bool = False
 
-    # ========= E-CHALLAN NOTIFICATIONS =========
+    # ==== Alerts ====
     ALERT_TO: str = "adisesh2267@gmail.com"
     ALERT_FROM: str = "no-reply@echallan.local"
 
-    # ========= CORS (Front-end origins allowed) =========
-    # Map the env var CORS_ORIGINS -> this raw string field
-    # Example in .env:
-    #   CORS_ORIGINS=http://localhost:3000,https://your-v0-preview
-    CORS_ORIGINS_RAW: str = Field(default="http://localhost:3000", alias="CORS_ORIGINS")
+    # ==== CORS ====
+    cors_origins_raw: str = Field(default="", alias="CORS_ORIGINS_RAW")
+    cors_origins: List[str] = Field(default=["http://localhost:3000"], alias="CORS_ORIGINS")
 
-    # ========= LOGGING =========
-    LOG_LEVEL: str = "info"
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors(cls, v: Union[str, List[str]]):
+        """Support JSON list or comma-separated string for CORS_ORIGINS."""
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return []
+            # Try JSON list format
+            if v.startswith("["):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return [s.strip() for s in parsed if s.strip()]
+                except Exception:
+                    pass
+            # Otherwise assume comma-separated
+            return [s.strip() for s in v.split(",") if s.strip()]
+        return v
 
-    # Expose a parsed list for the app to use
     @property
-    def CORS_ORIGINS(self) -> List[str]:
-        s = (self.CORS_ORIGINS_RAW or "").strip()
-        if not s:
-            return []
-        # Allow JSON array too
-        if s.startswith("["):
-            import json
-            try:
-                v = json.loads(s)
-                if isinstance(v, list):
-                    return [str(x).strip() for x in v if str(x).strip()]
-            except Exception:
-                pass
-        # Fallback: comma-separated
-        return [x.strip() for x in s.split(",") if x.strip()]
+    def merged_cors_origins(self) -> List[str]:
+        """
+        Combines both cors_origins_raw (simple CSV) and cors_origins (parsed field).
+        Useful if both are defined.
+        """
+        origins = set(self.cors_origins or [])
+        if self.cors_origins_raw:
+            for s in self.cors_origins_raw.split(","):
+                s = s.strip()
+                if s:
+                    origins.add(s)
+        return list(origins)
+
+    # ==== Logging ====
+    LOG_LEVEL: str = "info"
 
 
 @lru_cache()
-def get_settings() -> Settings:
+def get_settings() -> "Settings":
+    """Cached settings instance to avoid reloading each import."""
     return Settings()
 
 
